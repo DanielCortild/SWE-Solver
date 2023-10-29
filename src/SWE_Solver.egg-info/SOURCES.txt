@@ -1,0 +1,9 @@
+LICENSE
+README.md
+pyproject.toml
+src/SWE_Solver/__init__.py
+src/SWE_Solver/solver.py
+src/SWE_Solver.egg-info/PKG-INFO
+src/SWE_Solver.egg-info/SOURCES.txt
+src/SWE_Solver.egg-info/dependency_links.txt
+src/SWE_Solver.egg-info/top_level.txt
