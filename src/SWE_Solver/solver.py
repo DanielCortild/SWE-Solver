@@ -4,6 +4,13 @@ import scipy as sp
 from tqdm import tqdm
 
 def minmod(x):
+    """
+    Implements the minmod function on an array
+    Input:
+        x       Array of values
+    Output:
+        mx      The minmod of the array (scalar)
+    """
     if min(x) >= 0:
         return min(x)
     if max(x) <= 0:
@@ -11,6 +18,15 @@ def minmod(x):
     return 0
 
 def numDer(U, j, dx):
+    """
+    Returns the numerical derivative of an element in an array
+    Input:
+        U           The array of elements
+        j           The index at which the numerical derivative is to be taken
+        dx          The spatial step size
+    Output:
+        numder      The numerical derivative at index j
+    """
     theta = 1
     if 1 <= j < len(U)-1:
         return minmod([theta * (U[j] - U[j-1]) / dx,
