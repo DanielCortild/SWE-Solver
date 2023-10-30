@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "SWE_Solver"
-version = "0.0.1"
+version = "0.0.5"
 authors = [
   { name="Daniel Cortild", email="d.cortild@rug.nl" },
 ]
@@ -18,5 +18,5 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/pypa/sampleproject"
-"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+"Homepage" = "https://github.com/DanielCortild/SWE-Solver"
+"Bug Tracker" = "https://github.com/DanielCortild/SWE-Solver/issues"

@@ -1,1 +1,1 @@
-from solver import plotSWE
+from .solver import plotSWE
