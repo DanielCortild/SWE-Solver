@@ -2,6 +2,10 @@ LICENSE
 README.md
 pyproject.toml
 src/SWE_Solver/__init__.py
+src/SWE_Solver/examples.py
+src/SWE_Solver/initial.py
+src/SWE_Solver/post_processing.py
+src/SWE_Solver/reconstruct.py
 src/SWE_Solver/solver.py
 src/SWE_Solver.egg-info/PKG-INFO
 src/SWE_Solver.egg-info/SOURCES.txt

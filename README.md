@@ -2,7 +2,7 @@
 
 This package provides a well-balanced solver for the one-dimensional Saint-Venant equations, based on the principles outlined in [this paper](XXX).
 
-## Usage
+## Main Usage
 
 To utilize this package, you can call the `plotSWE` function with the following parameters:
 
@@ -23,6 +23,20 @@ h, u = plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C')
 * **h** _(array)_: Array containing the water height profile at the final time point.
 * **u** _(array)_: Array containing the water velocity profile at the final time point.
 
+## Pre-Coded Examples
+A number of pre-coded examples are available through the library, through the function `exampleSWE`.
+```
+h, u = exampleSWE(state="still_flat", method='C')
+```
+
+### Parameters
+* **state** _(String)_: Name of the example. Has to be one of `"still_flat"` (Constant height, zero velocity, flat bottom), `"still_tilted"` (Constant total height, zero velocity, tilted bottom), `"moving_flat"` (Constant height, constant velocity, flat bottom), `"moving_tilted"` (Constant total height, constant velocity, tilted bottom), `"evolving_wave"` (Step function for height, constant discharge, flat bottom). Defaults to `"still_flat"`.
+* **method** _(String)_: Name of the method used. Has to be one of `'A'`, `'B'`, `'C'`. Defaults to `'C'`.
+
+### Returns
+* **h** _(array)_: Array containing the water height profile at the final time point.
+* **u** _(array)_: Array containing the water velocity profile at the final time point.
+
 ## Example:
 
 ```
@@ -30,7 +44,7 @@ from SWE_Solver import plotSWE
 from math import sqrt
 from scipy.special import erf
 
-Nx = 100
+Nx = 50
 B = lambda x: 1
 f = lambda T: 1 + sqrt(3) / (1 - erf(-0.5 / 0.1)) * (erf((T - 0.5) / 0.1) - erf (-0.5 / 0.1))
 h0 = [f(_/ (Nx-1)) for _ in range(Nx)]
@@ -38,7 +52,14 @@ u0 = [2.0 / h0[_] for _ in range(Nx)]
 _ = plotSWE(B, h0, u0, Nx, tEnd=1.0, timePoints=[0.0, 0.1, 0.5, 1.0])
 ```
 
-In this example, we're using a spatial grid with 100 points, running the simulation up to `t=1` seconds, and visualizing the results at times `0.0`, `0.1`, `0.5` and `1.0` seconds, with gravitational constant `g=1` (default value) and using `method='C'` (default value).
+The above is equivalent to the simple example given by 
+```
+from SWE_Solver import exampleSWE
+
+_ = exampleSWE("evolve_wave", 'C')
+```
+
+In this example, we're using a spatial grid with 50 points, running the simulation up to `t=1` seconds, and visualizing the results at times `0.0`, `0.1`, `0.5` and `1.0` seconds, with gravitational constant `g=1` (default value) and using `method='C'` (default value).
 
 This produces the result in the following figure.
 

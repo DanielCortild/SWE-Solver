@@ -1,91 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy as sp
 from tqdm import tqdm
-
-def minmod(x):
-    """
-    Implements the minmod function on an array
-    Input:
-        x       Array of values
-    Output:
-        mx      The minmod of the array (scalar)
-    """
-    if min(x) >= 0:
-        return min(x)
-    if max(x) <= 0:
-        return max(x)
-    return 0
-
-def numDer(U, j, dx):
-    """
-    Returns the numerical derivative of an element in an array
-    Input:
-        U           The array of elements
-        j           The index at which the numerical derivative is to be taken
-        dx          The spatial step size
-    Output:
-        numder      The numerical derivative at index j
-    """
-    theta = 1
-    if 1 <= j < len(U)-1:
-        return minmod([theta * (U[j] - U[j-1]) / dx,
-               (U[j+1] - U[j-1]) / (2 * dx),
-               theta * (U[j+1] - U[j]) / dx])
-    if j == 0:
-        return theta * (U[j+1] - U[j]) / dx
-    if j == len(U) - 1:
-        return theta * (U[j] - U[j-1]) / dx
-
-def reconstructVars(vars, j, dx):
-    """
-    Reconstructs variables according to the linear derivative approximation.
-    Input:
-        vars        List of variables at grid points
-        j           Index j for which we which to reconstruct vRp, vRn, vLp, vLn
-        dx          Spatial discretization cell width
-    Output
-        vRp         Reconstructed Variable at Right interface, from the right
-        vRn         Reconstructed Variable at Right interface, from the left
-        vLp         Reconstructed Variable at Left interface, from the right
-        vLn         Reconstructed Variable at Left interface, from the left
-    """
-    vRp = vars[j+1] - dx * numDer(vars, j+1, dx) / 2
-    vRn = vars[j] + dx * numDer(vars, j, dx) / 2
-    vLp = vars[j] - dx * numDer(vars, j, dx) / 2
-    vLn = vars[j-1] + dx * numDer(vars, j-1, dx) / 2
-    return vRp, vRn, vLp, vLn
-
-def reconstructH(E, q, B, g, h):
-    """
-    Reconstructs h given the energy and the discharge at a given point.
-    Uses the previously reconstructed h as a starting point, and follows
-    the algorithm laid out in the paper. 
-    This is only applicable in the case of Method C
-    Input:
-        E           The energy at the interface
-        q           The discharge at the interface
-        B           The bottom topography at the interfact
-        g           The gravitational constant
-        h           The previously reconstructed h at the interface
-    Output:
-        sol         The newly reconstructed h at the interface
-    """
-    phi = lambda x: q ** 2 / (2 * x ** 2) + g * (x + B) - E
-    Fr = abs(q) / np.sqrt(g * h ** 3)
-    if q == 0:
-        return E / g - B
-    if Fr == 1:
-        return np.cbrt(q**2 / g)
-    if Fr > 1:
-        hs = min(np.cbrt(q**2 / g), h)
-        lamb = 0.9  
-    else:
-        hs = max(np.cbrt(q**2 / g), h)
-        lamb = 1.1
-    while phi(hs) < 1e-4: 
-        hs *= lamb
-    return sp.optimize.fsolve(phi, hs)[0]
+from .reconstruct import reconstructVars, reconstructH
+from .initial import constructIC, getLambdaMax, getBLin
 
 def computeFluctuation(method, Up, Un, B, F, dx, dt):
     """
@@ -172,6 +89,9 @@ def RHS(X, U, B, F, dx, dt, g, method):
             URp[0] = hRp
             ULn[0] = hLn
             ULp[0] = hLp
+        elif method == 'D':
+            w = np.array([B(x) + hi for x, hi in zip(X, h)])
+            wRp, wRn, wLp, wLn = reconstructVars(w, j, dx, posPres=True)
         else:
             raise ValueError("Method is not valid")
 
@@ -182,41 +102,6 @@ def RHS(X, U, B, F, dx, dt, g, method):
         RHS[j-1] = - (fluctR - fluctL) / dx + np.array([0, S])
         
     return RHS
-
-def getBLin(B, gridX):
-    """
-    Computes a linear approximation of a function
-    Input:
-        B           The function to be approximated
-        gridX       The spatial grid
-    Output:
-        BLin        The linearized function
-    """
-    dx = gridX[1]
-    def BLin(x):
-        if x <= 0.5 * dx:
-            return B(-0.5*dx) + (B(0.5*dx) - B(-0.5*dx)) * (x - (-0.5 * dx)) / (dx)
-        for i in range(1, len(gridX)-1):
-            hm = 0.5 * (gridX[i-1] + gridX[i])
-            hp = 0.5 * (gridX[i] + gridX[i+1])
-            if  hm <= x <= hp:
-                return B(hm) + (B(hp) - B(hm)) * (x - hm) / (hp - hm)
-        if x >= 1 - 0.5 * dx:
-            return B(1-0.5*dx) + (B(1+0.5*dx) - B(1-0.5*dx)) * (x - (1-0.5*dx)) / (dx)
-    return np.vectorize(BLin)
-
-def getLambdaMax(U, g):
-    """
-    Computes the maximal eigenvalue of the flux function in the SWE equations.
-    The eigenvalue is computed as the maximal value taken by u+sqrt(gh), over 
-    all u and h.
-    Input:
-        U       The variable vector, containing water height (h) and discharge (q=hu)
-        g       The gravitational constant
-    Output:
-        lamb    The maximal eigenvalue
-    """
-    return max([U[j][1]/U[j][0] + np.sqrt(max(g * U[j][0], 0)) for j in range(len(U))])
 
 def solveSWE(B, U0, Nx, t_end, g, method):
     # Create spatial grid and compute step sizes
@@ -256,124 +141,3 @@ def solveSWE(B, U0, Nx, t_end, g, method):
         t_hist.append(t)
 
     return gridX, U_hist, t_hist
-
-def constructIC(method, h0, u0, Nx, B, g):
-    """
-    Constructs the initial condition given the vectors h0 an u0.
-    Depending on the method, the variables are not h and u, and hence a variable transformation is required.
-    Input:
-        method      The method used
-        h0          The initial profile in water height
-        u0          The initial profile in water velocity
-        Nx          The number of gridpoints
-        B           The bottom topography function
-        g           The gravitational constant
-    """
-    # Construct and extend the grid
-    X = np.linspace(0, 1, Nx)
-
-    # Dependeing on the method, construct the variables
-    if method in ['A', 'C']:
-        # In Methods A and C, the variables are height (h) and discharge (q=hu)
-        U0 = np.array([[h, u*h] for h, u in zip(h0, u0)])
-    elif method == 'B':
-        # In Method B, the variables are total height (w=h+B) and discharge (q=hu)
-        U0 = np.array([[B(x) + h, u*h] for h, u, x in zip(h0, u0, X)])
-    else:
-        raise ValueError(f"Intial Condition for Method {method} not implemented")
-    return U0
-
-def extractVars(method, U, g, B, gridX):
-    """
-    Extract the water height h and velocity u from a given profile
-    Input:
-        method      Which method has been used to couple the variables
-        U           The profile of variables
-        g           The graviational constant
-        B           The bottom topography function
-        gridX       The spatial grid
-    Output:
-        h           The water height profile
-        u           The water velocity profile
-    """
-    if method in ['A', 'C']:
-        h = [u[0] for u in U]
-        u = [u[1] / u[0] for u in U]
-    elif method == 'B':
-        h = [u[0] - B(x) for u, x in zip(U, gridX)]
-        u = [u[1] / (u[0] - B(x)) for u, x in zip(U, gridX)]
-    else:
-        raise ValueError(f"Extracting h has not been implemented for method {method}")
-    return h, u
-
-
-def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C'):
-    """
-    Computes and plots the solution to the SWE equations.
-    Input:
-        B           Bottom topography (function)
-        h0          Initial water height profile
-        u0          Initial water velocity profile
-        Nx          Number of spatial gridpoints
-        tEnd        End time of simulation
-        timePoints  Points in time to include in plot
-        g           Gravitational constant
-        method      Method used for discretization
-    Output:
-        h           Final water height profile
-        u           Final water velocity profile
-    """
-    # Check if variables make sense
-    if not callable(B) and (type(B) == list and (not callable(B[0]) or not callable(B[1]))):
-        raise ValueError("Bottom topography B should be of type callable")
-    if type(h0) != list or type(u0) != list:
-        raise ValueError("h0 and u0 should be of type list")
-    if len(h0) != len(u0):
-        raise ValueError("h0 and u0 should have same length")
-    if Nx <= 1:
-        raise ValueError("Nx must be at least 2")
-    if len(h0) != Nx:
-        raise ValueError("h0 and u0 should have length Nx")
-    if tEnd <= 0:
-        raise ValueError("tEnd should be larger than 0")
-    if g <= 0:
-        raise ValueError("g should be positive")
-    if method not in ['A', 'B', 'C']:
-        raise ValueError("Only Methods A, B and C have been implemented")
-    if type(timePoints) != list:
-        raise ValueError("timePoints should be of type list")
-
-    # Construct the Initial Profile
-    U0 = constructIC(method, h0, u0, Nx, B, g)
-
-    # Compute the solution depending on the method
-    if method == 'A':
-        B, Bx = B
-        B = np.vectorize(B)
-        Bx = np.vectorize(Bx)
-        gridX, UHist, tHist = solveSWE(Bx, U0, Nx, tEnd, g, method)
-    elif method in ['B', 'C']:
-        B = np.vectorize(B)
-        gridX, UHist, tHist = solveSWE(B, U0, Nx, tEnd, g, method)
-    else:
-        raise ValueError(f"Method {method} not implemented")
-
-    # Plot the solution at the given timestamps
-    plt.fill_between(gridX, B(gridX), label="Bottom Topography", color="brown")
-    for time in timePoints:
-        if time > tHist[-1]:
-            continue
-        i = 0
-        while tHist[i] < time: i+= 1
-        h, _ = extractVars(method, UHist[i], g, B, gridX)
-        plt.plot(gridX, B(gridX) + h, 
-                label=f"Water Height at t={round(time, 2)}")
-    plt.xlim(0, 1)
-    plt.ylim(bottom=0)
-    plt.title(f"Shallow-Water Profile for Method {method}")
-    plt.xlabel(r"Spatial Coordinate $x$")
-    plt.ylabel(r"Water depth $B+h$")
-    plt.legend()
-
-    # Unpack the water height and velocity from the final profile
-    return extractVars(method, UHist[-1], g, B, gridX)
