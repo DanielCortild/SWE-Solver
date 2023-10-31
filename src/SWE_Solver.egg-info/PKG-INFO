@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: SWE-Solver
-Version: 0.0.7
+Version: 0.0.8
 Summary: A small package including a one-dimensional well-balanced Shallow Water Equations solver.
 Author-email: Daniel Cortild <d.cortild@rug.nl>
 Project-URL: Homepage, https://github.com/DanielCortild/SWE-Solver
@@ -44,7 +44,7 @@ h, u = exampleSWE(state="still_flat", method='C')
 ```
 
 ### Parameters
-* **state** _(String)_: Name of the example. Has to be one of `"still_flat"` (Constant height, zero velocity, flat bottom), `"still_tilted"` (Constant total height, zero velocity, tilted bottom), `"moving_flat"` (Constant height, constant velocity, flat bottom), `"moving_tilted"` (Constant total height, constant velocity, tilted bottom), `"evolving_wave"` (Step function for height, constant discharge, flat bottom). Defaults to `"still_flat"`.
+* **state** _(String)_: Name of the example. Has to be one of `"still_flat"` (Constant height, zero velocity, flat bottom), `"still_tilted"` (Constant total height, zero velocity, tilted bottom), `"moving_flat"` (Constant height, constant velocity, flat bottom), `"moving_tilted"` (Constant total height, constant velocity, tilted bottom), `"evolving_wave"` (Step function for height, constant discharge, flat bottom), `"forming_collision"` (Constant water height, positive velocity on the right, negative velocity on the left, flat bottom), `"spike_flattening"` (Water height given by a Gaussian, zero velocity, flat bottom), `"over_bump"` (Constant total water height, constant velocity, bottom given by a Gaussian). Defaults to `"still_flat"`.
 * **method** _(String)_: Name of the method used. Has to be one of `'A'`, `'B'`, `'C'`. Defaults to `'C'`.
 
 ### Returns
