@@ -17,7 +17,7 @@ def extractVars(method, U, g, B, gridX):
         u           The water velocity profile
     """
     h = [u[0] for u in U]
-    u = [u[1] / u[0] if u[0] >= 1e-2 else 0 for u in U]
+    u = [u[1] / u[0] for u in U]
     return h, u
 
 
@@ -73,6 +73,7 @@ def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C'):
         raise ValueError(f"Method {method} not implemented")
 
     # Plot the solution at the given timestamps
+    plt.figure()
     plt.fill_between(gridX, B(gridX), label="Bottom Topography", color="brown")
     for time in timePoints:
         if time > tHist[-1]:
@@ -88,6 +89,8 @@ def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C'):
     plt.xlabel(r"Spatial Coordinate $x$")
     plt.ylabel(r"Water depth $B+h$")
     plt.legend()
+
+    plt.show()
 
     # Unpack the water height and velocity from the final profile
     return extractVars(method, UHist[-1], g, B, gridX)

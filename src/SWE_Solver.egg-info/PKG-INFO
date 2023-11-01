@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: SWE-Solver
-Version: 0.1.0
+Version: 0.1.1
 Summary: A small package including a one-dimensional well-balanced Shallow Water Equations solver.
 Author-email: Daniel Cortild <d.cortild@rug.nl>
 Project-URL: Homepage, https://github.com/DanielCortild/SWE-Solver

@@ -1,31 +1,30 @@
 import numpy as np
 import scipy as sp
 from tqdm import tqdm
-from .reconstruct import reconstructVars, reconstructH
+from .reconstruct import reconstructVars, reconstructH, numDer
 from .initial import constructIC, getLambdaMax, getBLin
 
-def computeFluctuation(Up, Un, F, dx, dt):
+def computeFluctuation(Up, Un, dx, dt, g):
     """
     Computes the fluctuation at a given interfact
     Input:
         Up      Variables U at the right reconstruction of the interfact
         Un      Variables U at the left reconstruction of the interfact
-        F       Flux function
         dx      Spatial cell width
         dt      Time step
     Output:
         fluct   Fluctuation at the given cell interface
     """
-    return 0.5 * (F(Up) + F(Un) - dx / dt * (Up - Un))
+    F = lambda h, q: np.array([q, q ** 2 / h + g * h ** 2 / 2])
+    return 0.5 * (F(*Up) + F(*Un) - dx / dt * (Up - Un))
 
-def RHS(X, U, B, F, dx, dt, g, method):
+def RHS(X, U, B, dx, dt, g, method):
     """
     Computes the RHS of a hyperbolic system, considered as a semi-discrete system
     Input:
         X           The (uniform) spatial grid
         U           The previous solution profile
         B           The bottom topogrpahy (Or its derivative)
-        F           The flux function
         dx          The spatial step size
         dt          The time step size
         g           The acceleration constant
@@ -33,68 +32,71 @@ def RHS(X, U, B, F, dx, dt, g, method):
     Output:
         RHS         The newly evaluated RHS
     """
-    # Initialise RHS and extend U and X to allow for open BCs
+    # Initialise RHS before changing the variables
     RHS = np.empty_like(U)
+
+    # Extend U and X to allow for open BCs
     U = np.vstack([U[0], U, U[-1]])
     X = np.concatenate([[X[0]], X, [X[-1]]])
     XHalf = 0.5 * (X[:-1] + X[1:])
+    BX = B(X)
+    BHalf = B(XHalf)
 
     # Extracting quantities from the data
-    h = [p[0] for p in U]
     q = [p[1] for p in U]
-    w = [p[0] + B(x) for p, x in zip(U, X)]
     u = [p[1] / p[0] for p in U]
-    E = np.array([ui ** 2 / 2 + g * (hi + B(x)) for (ui, hi, x) in zip(u, h, X)])
+    h = [p[0] for p in U]
 
-    # Filling up the RHS
-    for j in range(1, len(RHS)+1):
+    # Reconstruct q (Same for all methods)
+    qn, qp = reconstructVars(q, dx)
+    
+    # Reconstruct h (Different per method)
+    if method == 'A':
+        # For method A, we directly reconstruct h
+        hn, hp = reconstructVars(h, dx)
+    if method == 'B':
+        # For method B, reconstruction of h is based on reconstruction of w
+        w = [p[0] + B(x) for p, x in zip(U, X)]
+        wn, wp = reconstructVars(w, dx)
+
+        hn = [w_n - B_ for w_n, B_ in zip(wn, BHalf)]
+        hp = [w_p - B_ for w_p, B_ in zip(wp, BHalf)]
+    if method == 'C':
+        # For method C, reconstruction of h is based on reconstruction of E
+        E = np.array([u_ ** 2 / 2 + g * (h_ + B_) for (u_, h_, B_) in zip(u, h, BX)])
+        En, Ep = reconstructVars(E, dx)
+
+        hn = [reconstructH(E_n, qL, q_n, B_, hL, g) for E_n, qL, q_n, B_, hL in zip(En, q[:-1], qn, BHalf, h[:-1])]
+        hp = [reconstructH(E_p, qR, q_p, B_, hL, g) for E_p, qR, q_p, B_, hL in zip(Ep, q[1:], qp, BHalf, h[:-1])]
+
+    Up = np.stack([hp, qp], axis=1)
+    Un = np.stack([hn, qn], axis=1)
+
+    # Computing the RHS
+    for j in range(1, len(U)-1):
         # Bottom topograhy at interfaces
-        BR = B(XHalf[j])
-        BL = B(XHalf[j-1])
+        BR, BL = B(XHalf[j]), B(XHalf[j-1])
 
         # Computation of Source Term
         if method == 'A':
-            # Reconstructions of variables
-            hRp, hRn, hLp, hLn = reconstructVars(h, j, dx)
-            qRp, qRn, qLp, qLn = reconstructVars(q, j, dx)
-
-            # Computation of source term
             S = - g * h[j] * B(X[j])
         elif method == 'B':
-            # Reconstructions of variables
-            wRp, wRn, wLp, wLn = reconstructVars(w, j, dx)
-            qRp, qRn, qLp, qLn = reconstructVars(q, j, dx)
-            hRp, hRn, hLp, hLn = wRp - B(XHalf[j]), wRn - B(XHalf[j]), wLp - B(XHalf[j-1]), wLn - B(XHalf[j-1])
-
-            # Computation of source term
             S = - g * (w[j] - B(X[j])) * (BR - BL) / dx
         elif method == 'C':
-            # Reconstructions of variables
-            qRp, qRn, qLp, qLn = reconstructVars(q, j, dx)
-            ERp, ERn, ELp, ELn = reconstructVars(E, j, dx)
-            hRn = reconstructH(ERn, q[j], qRn, BR, h[j], g)
-            hRp = reconstructH(ERp, q[j], qRp, BR, h[j], g)
-            hLp = reconstructH(ELp, q[j-1], qLp, BL, h[j-1], g)
-            hLn = reconstructH(ELn, q[j-1], qLn, BL, h[j-1], g)
-
-            # Compute Source Term
-            S = (- g * (hRn + hLp) / 2 * (BR - BL) / dx 
-                + (hRn - hLp) / (4 * dx) * (qRn / hRn - qLp / hLp) ** 2)
+            qRn, qLp = qn[j], qp[j-1]
+            hRn, hLp = hn[j], hp[j-1]
+            S = (- g * (hRn + hLp) / 2 * (BR - BL) / dx + (hRn - hLp) / (4 * dx) * (qRn / hRn - qLp / hLp) ** 2)
         else:
             raise ValueError("Method is not valid")
 
-        # Recontructions of U
-        URp = np.array([hRp, qRp])
-        URn = np.array([hRn, qRn])
-        ULp = np.array([hLp, qLp])
-        ULn = np.array([hLn, qLn])
-
         # Compute the Fluctuation
-        fluctR = computeFluctuation(URp, URn, F, dx, dt)
-        fluctL = computeFluctuation(ULp, ULn, F, dx, dt)
+        fluctR = computeFluctuation(Up[j], Un[j], dx, dt, g)
+        fluctL = computeFluctuation(Up[j-1], Un[j-1], dx, dt, g)
 
         RHS[j-1] = - (fluctR - fluctL) / dx + np.array([0, S])
-        
+
+    # print(RHS)
+
     return RHS
 
 def solveSWE(B, U0, Nx, t_end, g, method):
@@ -104,9 +106,6 @@ def solveSWE(B, U0, Nx, t_end, g, method):
 
     # Get linearized bottom topography
     B = getBLin(B, gridX)
-
-    # Define the Flux function
-    F = lambda U: np.array([U[1], U[1] ** 2 / U[0] + g * U[0] ** 2 / 2])
 
     # Solve the system using SSPRK(2,2)
     U_hist = [U0.copy()]
@@ -122,7 +121,7 @@ def solveSWE(B, U0, Nx, t_end, g, method):
     for _ in pbar:
         pbar.set_description(f"Total Time: {round(t, 4)} / {t_end}")
         dt = min(dt, t_end - t)
-        L = lambda U: RHS(gridX, U, B, F, dx, dt, g, method)
+        L = lambda U: RHS(gridX, U, B, dx, dt, g, method)
         Utemp1 = U0 + dt * L(U0)
         U0 = 1/2 * U0 + 1/2 * Utemp1 + 1/2 * dt * L(Utemp1)
         U_hist.append(U0.copy())

@@ -33,7 +33,7 @@ def getLambdaMax(U, g):
     Output:
         lamb    The maximal eigenvalue
     """
-    return max([U[j][1]/U[j][0] + np.sqrt(max(g * U[j][0], 0)) for j in range(len(U))])
+    return max([u[1]/u[0] + np.sqrt(max(g * u[0], 0)) for u in U])
 
 
 def constructIC(method, h0, u0, Nx, B, g):
