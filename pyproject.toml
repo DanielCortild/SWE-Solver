@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "SWE_Solver"
-version = "0.0.10"
+version = "0.1.0"
 authors = [
   { name="Daniel Cortild", email="d.cortild@rug.nl" },
 ]

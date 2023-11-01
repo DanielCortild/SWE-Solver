@@ -34,6 +34,7 @@ def numDer(U, j, dx):
         return theta * (U[j+1] - U[j]) / dx
     if j == len(U) - 1:
         return theta * (U[j] - U[j-1]) / dx
+    return 0
 
 def reconstructVars(vars, j, dx):
     """
@@ -54,32 +55,34 @@ def reconstructVars(vars, j, dx):
     vLn = vars[j-1] + dx * numDer(vars, j-1, dx) / 2
     return vRp, vRn, vLp, vLn
 
-def reconstructH(E, q, B, g, h):
+def reconstructH(EHalf, q, qHalf, BHalf, h, g):
     """
     Reconstructs h given the energy and the discharge at a given point.
     Uses the previously reconstructed h as a starting point, and follows
     the algorithm laid out in the paper. 
     This is only applicable in the case of Method C
     Input:
-        E           The energy at the interface
-        q           The discharge at the interface
-        B           The bottom topography at the interfact
+        EHalf       The energy at the interface
+        q           The discharge at the center
+        qHalf       The discharge at the interface
+        BHalf       The bottom topography at the interfact
+        h           The water height at the center
         g           The gravitational constant
-        h           The previously reconstructed h at the interface
     Output:
         sol         The newly reconstructed h at the interface
     """
-    phi = lambda x: q ** 2 / (2 * x ** 2) + g * (x + B) - E
+    phi = lambda x: qHalf ** 2 / (2 * x ** 2) + g * (x + BHalf) - EHalf
     Fr = abs(q) / np.sqrt(g * h ** 3)
+    h0 = np.cbrt(qHalf ** 2 / g)
     if q == 0:
-        return E / g - B
+        return EHalf / g - BHalf
     if Fr == 1:
-        return np.cbrt(q**2 / g)
+        return h0
     if Fr > 1:
-        hs = min(np.cbrt(q**2 / g), h)
+        hs = min(h0, h)
         lamb = 0.9  
     else:
-        hs = max(np.cbrt(q**2 / g), h)
+        hs = max(h0, h)
         lamb = 1.1
     while phi(hs) < 1e-4: 
         hs *= lamb

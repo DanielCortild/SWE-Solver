@@ -4,23 +4,19 @@ from tqdm import tqdm
 from .reconstruct import reconstructVars, reconstructH
 from .initial import constructIC, getLambdaMax, getBLin
 
-def computeFluctuation(method, Up, Un, B, F, dx, dt):
+def computeFluctuation(Up, Un, F, dx, dt):
     """
     Computes the fluctuation at a given interfact
     Input:
         Up      Variables U at the right reconstruction of the interfact
         Un      Variables U at the left reconstruction of the interfact
-        B       Bottom topography at the interface
         F       Flux function
         dx      Spatial cell width
         dt      Time step
     Output:
         fluct   Fluctuation at the given cell interface
     """
-    if method in ['A', 'C']:
-        return 0.5 * (F(Up) + F(Un) - dx / dt * (Up - Un))
-    elif method == 'B':
-        return 0.5 * (F(Up, B) + F(Un, B) - dx / dt * (Up - Un))
+    return 0.5 * (F(Up) + F(Un) - dx / dt * (Up - Un))
 
 def RHS(X, U, B, F, dx, dt, g, method):
     """
@@ -43,19 +39,49 @@ def RHS(X, U, B, F, dx, dt, g, method):
     X = np.concatenate([[X[0]], X, [X[-1]]])
     XHalf = 0.5 * (X[:-1] + X[1:])
 
+    # Extracting quantities from the data
+    h = [p[0] for p in U]
+    q = [p[1] for p in U]
+    w = [p[0] + B(x) for p, x in zip(U, X)]
+    u = [p[1] / p[0] for p in U]
+    E = np.array([ui ** 2 / 2 + g * (hi + B(x)) for (ui, hi, x) in zip(u, h, X)])
+
     # Filling up the RHS
     for j in range(1, len(RHS)+1):
         # Bottom topograhy at interfaces
         BR = B(XHalf[j])
         BL = B(XHalf[j-1])
 
-        # Reconstructions of h
-        h = [u[0] for u in U]
-        hRp, hRn, hLp, hLn = reconstructVars(h, j, dx)
+        # Computation of Source Term
+        if method == 'A':
+            # Reconstructions of variables
+            hRp, hRn, hLp, hLn = reconstructVars(h, j, dx)
+            qRp, qRn, qLp, qLn = reconstructVars(q, j, dx)
 
-        # Reconstructions of q
-        q = [u[1] for u in U]
-        qRp, qRn, qLp, qLn = reconstructVars(q, j, dx)
+            # Computation of source term
+            S = - g * h[j] * B(X[j])
+        elif method == 'B':
+            # Reconstructions of variables
+            wRp, wRn, wLp, wLn = reconstructVars(w, j, dx)
+            qRp, qRn, qLp, qLn = reconstructVars(q, j, dx)
+            hRp, hRn, hLp, hLn = wRp - B(XHalf[j]), wRn - B(XHalf[j]), wLp - B(XHalf[j-1]), wLn - B(XHalf[j-1])
+
+            # Computation of source term
+            S = - g * (w[j] - B(X[j])) * (BR - BL) / dx
+        elif method == 'C':
+            # Reconstructions of variables
+            qRp, qRn, qLp, qLn = reconstructVars(q, j, dx)
+            ERp, ERn, ELp, ELn = reconstructVars(E, j, dx)
+            hRn = reconstructH(ERn, q[j], qRn, BR, h[j], g)
+            hRp = reconstructH(ERp, q[j], qRp, BR, h[j], g)
+            hLp = reconstructH(ELp, q[j-1], qLp, BL, h[j-1], g)
+            hLn = reconstructH(ELn, q[j-1], qLn, BL, h[j-1], g)
+
+            # Compute Source Term
+            S = (- g * (hRn + hLp) / 2 * (BR - BL) / dx 
+                + (hRn - hLp) / (4 * dx) * (qRn / hRn - qLp / hLp) ** 2)
+        else:
+            raise ValueError("Method is not valid")
 
         # Recontructions of U
         URp = np.array([hRp, qRp])
@@ -63,41 +89,9 @@ def RHS(X, U, B, F, dx, dt, g, method):
         ULp = np.array([hLp, qLp])
         ULn = np.array([hLn, qLn])
 
-        # Computation of Source Term
-        if method == 'A':
-            S = - g * h[j] * B(X[j])
-        elif method == 'B':
-            h_bar = h[j] - B(X[j])
-            S = - g * h_bar * (BR - BL) / dx
-        elif method == 'C':
-            # Reconstructions of E
-            E = np.array([u[1] ** 2 / (2 * u[0] ** 2) + g * (u[0] + B(X[i])) for (i, u) in enumerate(U)])
-            ERp, ERn, ELp, ELn = reconstructVars(E, j, dx)
-
-            hRn = reconstructH(ERn, qRn, BR, g, hRp)
-            hRp = reconstructH(ERp, qRp, BR, g, hRn)
-            hLp = reconstructH(ELp, qLp, BL, g, hLp)
-            hLn = reconstructH(ELn, qLn, BL, g, hLn)
-
-            # Compute Source Term
-            S = (- g * (hRn + hLp) / 2 * (BR - BL) / dx 
-                + (hRn - hLp) / (4 * dx) * (qRn / hRn - qLp / hLp) ** 2)
-                # - ((qRn / hRn) ** 2 - (qLp / hLp) ** 2) / (2 * dx) * ((hRn + hLp) / 2 - 2 * hRn * hLp / (hRn + hLp)))
-
-            # Recomputation of the reconstructions at the interfaces
-            URn[0] = hRn
-            URp[0] = hRp
-            ULn[0] = hLn
-            ULp[0] = hLp
-        elif method == 'D':
-            w = np.array([B(x) + hi for x, hi in zip(X, h)])
-            wRp, wRn, wLp, wLn = reconstructVars(w, j, dx, posPres=True)
-        else:
-            raise ValueError("Method is not valid")
-
         # Compute the Fluctuation
-        fluctR = computeFluctuation(method, URp, URn, BR, F, dx, dt)
-        fluctL = computeFluctuation(method, ULp, ULn, BL, F, dx, dt)
+        fluctR = computeFluctuation(URp, URn, F, dx, dt)
+        fluctL = computeFluctuation(ULp, ULn, F, dx, dt)
 
         RHS[j-1] = - (fluctR - fluctL) / dx + np.array([0, S])
         
@@ -112,10 +106,7 @@ def solveSWE(B, U0, Nx, t_end, g, method):
     B = getBLin(B, gridX)
 
     # Define the Flux function
-    if method in ['A', 'C']:
-        F = lambda U: np.array([U[1], U[1] ** 2 / U[0] + g * U[0] ** 2 / 2])
-    elif method == 'B':
-        F = lambda U, x: np.array([U[1], U[1] ** 2 / (U[0] - B(x)) + g * (U[0] - B(x)) ** 2 / 2])
+    F = lambda U: np.array([U[1], U[1] ** 2 / U[0] + g * U[0] ** 2 / 2])
 
     # Solve the system using SSPRK(2,2)
     U_hist = [U0.copy()]
@@ -130,12 +121,10 @@ def solveSWE(B, U0, Nx, t_end, g, method):
     dt = min(dx / getLambdaMax(U0, g), t_end)
     for _ in pbar:
         pbar.set_description(f"Total Time: {round(t, 4)} / {t_end}")
-        # print(dt)
         dt = min(dt, t_end - t)
         L = lambda U: RHS(gridX, U, B, F, dx, dt, g, method)
         Utemp1 = U0 + dt * L(U0)
         U0 = 1/2 * U0 + 1/2 * Utemp1 + 1/2 * dt * L(Utemp1)
-        # U0 += dt * L(U0)
         U_hist.append(U0.copy())
         t += dt
         t_hist.append(t)

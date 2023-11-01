@@ -51,13 +51,6 @@ def constructIC(method, h0, u0, Nx, B, g):
     # Construct and extend the grid
     X = np.linspace(0, 1, Nx)
 
-    # Dependeing on the method, construct the variables
-    if method in ['A', 'C']:
-        # In Methods A and C, the variables are height (h) and discharge (q=hu)
-        U0 = np.array([[h, u*h] for h, u in zip(h0, u0)])
-    elif method == 'B':
-        # In Method B, the variables are total height (w=h+B) and discharge (q=hu)
-        U0 = np.array([[B(x) + h, u*h] for h, u, x in zip(h0, u0, X)])
-    else:
-        raise ValueError(f"Intial Condition for Method {method} not implemented")
+    # Construct the variables
+    U0 = np.array([[h, u*h] for h, u in zip(h0, u0)])
     return U0

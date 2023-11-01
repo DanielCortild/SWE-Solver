@@ -16,14 +16,8 @@ def extractVars(method, U, g, B, gridX):
         h           The water height profile
         u           The water velocity profile
     """
-    if method in ['A', 'C']:
-        h = [u[0] for u in U]
-        u = [u[1] / u[0] for u in U]
-    elif method == 'B':
-        h = [u[0] - B(x) for u, x in zip(U, gridX)]
-        u = [u[1] / (u[0] - B(x)) for u, x in zip(U, gridX)]
-    else:
-        raise ValueError(f"Extracting h has not been implemented for method {method}")
+    h = [u[0] for u in U]
+    u = [u[1] / u[0] if u[0] >= 1e-2 else 0 for u in U]
     return h, u
 
 
@@ -59,7 +53,7 @@ def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C'):
     if g <= 0:
         raise ValueError("g should be positive")
     if method not in ['A', 'B', 'C']:
-        raise ValueError("Only Methods A, B and C have been implemented")
+        raise ValueError("Only Methods A, B, C and D have been implemented")
     if type(timePoints) != list:
         raise ValueError("timePoints should be of type list")
 
@@ -72,7 +66,7 @@ def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C'):
         B = np.vectorize(B)
         Bx = np.vectorize(Bx)
         gridX, UHist, tHist = solveSWE(Bx, U0, Nx, tEnd, g, method)
-    elif method in ['B', 'C']:
+    elif method in ['B', 'C', 'D']:
         B = np.vectorize(B)
         gridX, UHist, tHist = solveSWE(B, U0, Nx, tEnd, g, method)
     else:

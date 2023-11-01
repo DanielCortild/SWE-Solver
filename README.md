@@ -2,13 +2,20 @@
 
 This package provides a well-balanced solver for the one-dimensional Saint-Venant equations, based on the principles outlined in [this paper](XXX).
 
+## Installation
+
+The package is available through pip, and may be installed via:
+```
+pip install SWE_Solver
+```
+
 ## Main Usage
 
 To utilize this package, you can call the `plotSWE` function with the following parameters:
-
 ```
 h, u = plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C')
 ```
+
 ### Parameters:
 * **B** _(callable)_: Bottom topography function. This function defines the topographic profile and should take spatial coordinates as input and return the bottom elevation at those coordinates. In case of `method='A'`, should be an array of two callables, representing B and its derivative.
 * **h0** _(array)_: Initial water height profile. This should be an array of length `Nx`, representing the initial water height at different spatial locations.
@@ -30,14 +37,14 @@ h, u = exampleSWE(state="still_flat", method='C')
 ```
 
 ### Parameters
-* **state** _(String)_: Name of the example. Has to be one of `"still_flat"` (Constant height, zero velocity, flat bottom), `"still_tilted"` (Constant total height, zero velocity, tilted bottom), `"moving_flat"` (Constant height, constant velocity, flat bottom), `"moving_tilted"` (Constant total height, constant velocity, tilted bottom), `"evolving_wave"` (Step function for height, constant discharge, flat bottom), `"forming_collision"` (Constant water height, positive velocity on the right, negative velocity on the left, flat bottom), `"spike_flattening"` (Water height given by a Gaussian, zero velocity, flat bottom), `"over_bump"` (Constant total water height, constant velocity, bottom given by a Gaussian). Defaults to `"still_flat"`.
+* **state** _(String)_: Name of the example. Has to be one of `"still_flat"` (Constant height, zero velocity, flat bottom), `"still_tilted"` (Constant total height, zero velocity, tilted bottom), `"moving_flat"` (Constant height, constant velocity, flat bottom), `"moving_tilted"` (Constant total height, constant velocity, tilted bottom), `"evolving_wave"` (Step function for height, constant discharge, flat bottom), `"standing_wave"` (Final profile of `"evolving_wave"` for method 'C', representing an equilibrium), `"forming_collision"` (Constant water height, positive velocity on the right, negative velocity on the left, flat bottom), `"spike_flattening"` (Water height given by a Gaussian, zero velocity, flat bottom), `"over_bump"` (Constant total water height, constant velocity, bottom given by a Gaussian). Defaults to `"still_flat"`.
 * **method** _(String)_: Name of the method used. Has to be one of `'A'`, `'B'`, `'C'`. Defaults to `'C'`.
 
 ### Returns
 * **h** _(array)_: Array containing the water height profile at the final time point.
 * **u** _(array)_: Array containing the water velocity profile at the final time point.
 
-## Example:
+## Example
 
 ```
 from SWE_Solver import plotSWE
@@ -56,7 +63,7 @@ The above is equivalent to the simple example given by
 ```
 from SWE_Solver import exampleSWE
 
-_ = exampleSWE("evolve_wave", 'C')
+_ = exampleSWE("evolving_wave", 'C')
 ```
 
 In this example, we're using a spatial grid with 50 points, running the simulation up to `t=1` seconds, and visualizing the results at times `0.0`, `0.1`, `0.5` and `1.0` seconds, with gravitational constant `g=1` (default value) and using `method='C'` (default value).
