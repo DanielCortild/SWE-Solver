@@ -15,7 +15,9 @@ def computeFluctuation(Up, Un, dx, dt, g):
     Output:
         fluct   Fluctuation at the given cell interface
     """
-    F = lambda h, q: np.array([q, q ** 2 / h + g * h ** 2 / 2])
+    def F (h, q): 
+        u = q / h if h >= 1e-8 else 0
+        return np.array([h * u, h * u ** 2 + g * h ** 2 / 2])
     return 0.5 * (F(*Up) + F(*Un) - dx / dt * (Up - Un))
 
 def RHS(X, U, B, dx, dt, g, method):
@@ -43,9 +45,9 @@ def RHS(X, U, B, dx, dt, g, method):
     BHalf = B(XHalf)
 
     # Extracting quantities from the data
-    q = [p[1] for p in U]
-    u = [p[1] / p[0] for p in U]
+    u = [p[1] / p[0] if p[0] > 1e-8 else 0 for p in U]
     h = [p[0] for p in U]
+    q = [h_ * u_ for h_, u_ in zip(h, u)]
 
     # Reconstruct q (Same for all methods)
     qn, qp = reconstructVars(q, dx)
@@ -66,13 +68,23 @@ def RHS(X, U, B, dx, dt, g, method):
         E = np.array([u_ ** 2 / 2 + g * (h_ + B_) for (u_, h_, B_) in zip(u, h, BX)])
         En, Ep = reconstructVars(E, dx)
 
-        hn = [reconstructH(E_n, qL, q_n, B_, hL, g) for E_n, qL, q_n, B_, hL in zip(En, q[:-1], qn, BHalf, h[:-1])]
-        hp = [reconstructH(E_p, qR, q_p, B_, hL, g) for E_p, qR, q_p, B_, hL in zip(Ep, q[1:], qp, BHalf, h[:-1])]
+        hn = [reconstructH(E_n, qL, q_n, B_, hL, g) for E_n, qL, q_n, B_, hL, hR in zip(En, q[:-1], qn, BHalf, h[:-1], h[1:])]
+        hp = [reconstructH(E_p, qR, q_p, B_, hL, g) for E_p, qR, q_p, B_, hL, hR in zip(Ep, q[1:], qp, BHalf, h[:-1], h[1:])]
+
+        # Desingularise u and recompute q for consistency
+        un = [q_n / h_n if h_n > 1e-8 else 0 for q_n, h_n in zip(qn, hn)]
+        up = [q_p / h_p if h_p > 1e-8 else 0 for q_p, h_p in zip(qp, hp)]
+
+        qn = [u_n * h_n for u_n, h_n in zip(un, hn)]
+        qp = [u_p * h_p for u_p, h_p in zip(up, hp)]
 
     Up = np.stack([hp, qp], axis=1)
     Un = np.stack([hn, qn], axis=1)
 
-    # Computing the RHS
+    # Computing the fluctuations
+    fluctR = np.empty((len(U)-2, 2))
+    fluctL = np.empty((len(U)-2, 2))
+    sourceTerms = np.empty(len(U)-2)
     for j in range(1, len(U)-1):
         # Bottom topograhy at interfaces
         BR, BL = B(XHalf[j]), B(XHalf[j-1])
@@ -81,21 +93,25 @@ def RHS(X, U, B, dx, dt, g, method):
         if method == 'A':
             S = - g * h[j] * B(X[j])
         elif method == 'B':
-            S = - g * (w[j] - B(X[j])) * (BR - BL) / dx
+            S = - g * h[j] * (BR - BL) / dx
+            # S = - g * (w[j] - B(X[j])) * (BR - BL) / dx
         elif method == 'C':
-            qRn, qLp = qn[j], qp[j-1]
             hRn, hLp = hn[j], hp[j-1]
-            S = (- g * (hRn + hLp) / 2 * (BR - BL) / dx + (hRn - hLp) / (4 * dx) * (qRn / hRn - qLp / hLp) ** 2)
+            uRn, uLp = un[j], up[j-1]
+            S = (- g * (hRn + hLp) / 2 * (BR - BL) / dx + (hRn - hLp) / (4 * dx) * (uRn - uLp) ** 2)
         else:
             raise ValueError("Method is not valid")
 
+        if np.isnan(Up[j]).any() or np.isnan(Un[j]).any():
+            print("U has nans")
+            exit()
         # Compute the Fluctuation
-        fluctR = computeFluctuation(Up[j], Un[j], dx, dt, g)
-        fluctL = computeFluctuation(Up[j-1], Un[j-1], dx, dt, g)
+        fluctR[j-1] = computeFluctuation(Up[j], Un[j], dx, dt, g)
+        fluctL[j-1] = computeFluctuation(Up[j-1], Un[j-1], dx, dt, g)
 
-        RHS[j-1] = - (fluctR - fluctL) / dx + np.array([0, S])
-
-    # print(RHS)
+        sourceTerms[j-1] = S
+        
+    RHS = - dt * (fluctR - fluctL) / dx + dt * np.stack([np.zeros_like(sourceTerms), sourceTerms], axis=1)
 
     return RHS
 
@@ -117,13 +133,12 @@ def solveSWE(B, U0, Nx, t_end, g, method):
             yield
 
     pbar = tqdm(generator(t_end))
-    dt = min(dx / getLambdaMax(U0, g), t_end)
     for _ in pbar:
         pbar.set_description(f"Total Time: {round(t, 4)} / {t_end}")
-        dt = min(dt, t_end - t)
+        dt = min(dx / (2 * getLambdaMax(U0, g)), t_end - t)
         L = lambda U: RHS(gridX, U, B, dx, dt, g, method)
-        Utemp1 = U0 + dt * L(U0)
-        U0 = 1/2 * U0 + 1/2 * Utemp1 + 1/2 * dt * L(Utemp1)
+        Utemp1 = U0 + L(U0)
+        U0 = 1/2 * U0 + 1/2 * Utemp1 + 1/2 * L(Utemp1)
         U_hist.append(U0.copy())
         t += dt
         t_hist.append(t)

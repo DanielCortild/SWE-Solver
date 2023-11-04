@@ -66,14 +66,17 @@ def reconstructH(EHalf, q, qHalf, BHalf, h, g):
     Output:
         sol         The newly reconstructed h at the interface
     """
+    if h < 1e-8: return h
     phi = lambda x: qHalf ** 2 / (2 * x ** 2) + g * (x + BHalf) - EHalf
-    Fr = abs(q) / np.sqrt(g * h ** 3) #abs(q) / np.sqrt(max(g * h ** 3, 1e-4))
+    Fr = abs(q) / np.sqrt(g * h ** 3)
     h0 = np.cbrt(qHalf ** 2 / g)
     if q == 0: return EHalf / g - BHalf
     if Fr == 1: return h0
-    hStar, lamb = [min(h0, h), 0.9] if Fr > 1 else [max(h0, h), 1.1]
+    hStar, lamb = [h0, 0.9] if Fr > 1 else [h0, 1.1]
     while phi(hStar) < 1e-4: 
         hStar *= lamb
+    if abs(hStar) < 1e-2:
+        print(hStar)
     try:
         return sp.optimize.newton(phi, hStar)
     except:
