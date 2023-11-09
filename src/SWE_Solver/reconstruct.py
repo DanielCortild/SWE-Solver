@@ -25,16 +25,22 @@ def numDer(U, j, dx):
     Output:
         numder      The numerical derivative at index j
     """
+    # Parameter, could be tweaked
     theta = 1
+
+    # General case
     if 1 <= j < len(U)-1:
         return minmod([theta * (U[j] - U[j-1]) / dx,
                (U[j+1] - U[j-1]) / (2 * dx),
                theta * (U[j+1] - U[j]) / dx])
+
+    # Left-boundary case
     if j == 0:
         return theta * (U[j+1] - U[j]) / dx
+
+    # Right-boundary case
     if j == len(U) - 1:
         return theta * (U[j] - U[j-1]) / dx
-    return 0
 
 def reconstructVars(vars, dx):
     """
@@ -66,20 +72,28 @@ def reconstructH(EHalf, q, qHalf, BHalf, h, g):
     Output:
         sol         The newly reconstructed h at the interface
     """
+    # Pathological case 
     if h < 1e-8: return h
+
+    # Function of which we seek a minimum
     phi = lambda x: qHalf ** 2 / (2 * x ** 2) + g * (x + BHalf) - EHalf
-    Fr = abs(q) / np.sqrt(g * h ** 3)
+
+    # Compute sonic point
     h0 = np.cbrt(qHalf ** 2 / g)
-    if q == 0: return EHalf / g - BHalf
-    if Fr == 1: return h0
-    hStar, lamb = [h0, 0.9] if Fr > 1 else [h0, 1.1]
-    while phi(hStar) < 1e-4: 
-        hStar *= lamb
-    if abs(hStar) < 1e-2:
-        print(hStar)
+
+    # Compute froude approximation
+    Fr = abs(q) / np.sqrt(g * h ** 3)
+
+    # Treat trivial cases
+    if abs(q) < 1e-8: return EHalf / g - BHalf
+    if abs(Fr - 1) < 1e-4: return h0
+
+    # Set initial guess
+    hStar, lamb = [min(h, h0), 0.9] if Fr > 1 else [max(h, h0), 1.1]
+    while phi(hStar) < 1e-4: hStar *= lamb
+
+    # Solve using Newton's method, and in case of non-convergence return h0
     try:
         return sp.optimize.newton(phi, hStar)
     except:
         return h0
-        if abs(Fr - 1) > 0.2:
-            print(f"Newton did not converge and Fr={Fr}")

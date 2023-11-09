@@ -1,6 +1,6 @@
 # Shallow Water Equations Solver
 
-This package provides a well-balanced solver for the one-dimensional Saint-Venant equations, based on the principles outlined in [this paper](https://github.com/DanielCortild/SWE-Solver/blob/967bd50116b6374dda2cf36ac9628e56af1722de/paper.pdf).
+This package provides a well-balanced solver for the one-dimensional Saint-Venant equations, based on the principles outlined in [this paper](https://github.com/DanielCortild/SWE-Solver/blob/967bd50116b6374dda2cf36ac9628e56af1722de/paper.pdf?raw=true).
 
 ## Installation
 
@@ -17,7 +17,7 @@ h, u = plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C')
 ```
 
 ### Parameters:
-* **B** _(callable)_: Bottom topography function. This function defines the topographic profile and should take spatial coordinates as input and return the bottom elevation at those coordinates. In case of `method='A'`, should be an array of two callables, representing B and its derivative.
+* **B** _(callable)_: Bottom topography function. This function defines the topographic profile and should take spatial coordinates as input and return the bottom elevation at those coordinates. 
 * **h0** _(array)_: Initial water height profile. This should be an array of length `Nx`, representing the initial water height at different spatial locations.
 * **u0** _(array)_: Initial water velocity profile. Similar to h0, this should be an array of length `Nx`, representing the initial water velocity at different spatial locations.
 * **Nx** _(int)_: Number of spatial grid points.
@@ -37,7 +37,7 @@ h, u = exampleSWE(state="still_flat", method='C')
 ```
 
 ### Parameters
-* **state** _(String)_: Name of the example. Has to be one of `"still_flat"` (Constant height, zero velocity, flat bottom), `"still_tilted"` (Constant total height, zero velocity, tilted bottom), `"moving_flat"` (Constant height, constant velocity, flat bottom), `"moving_tilted"` (Constant total height, constant velocity, tilted bottom), `"evolving_wave"` (Step function for height, constant discharge, flat bottom), `"standing_wave"` (Final profile of `"evolving_wave"` for method 'C', representing an equilibrium), `"forming_collision"` (Constant water height, positive velocity on the right, negative velocity on the left, flat bottom), `"spike_flattening"` (Water height given by a Gaussian, zero velocity, flat bottom), `"over_bump"` (Constant total water height, constant velocity, bottom given by a Gaussian). Defaults to `"still_flat"`.
+* **state** _(String)_: Name of the example. Has to be one of `"still_flat"` (Constant height, zero velocity, flat bottom), `"still_tilted"` (Constant total height, zero velocity, tilted bottom),, `"still_tilted_pert"` (Perturbed constant total height, perturbed zero velocity, tilted bottom), `"moving_flat"` (Constant height, constant velocity, flat bottom), `"moving_tilted"` (Constant total height, constant velocity, tilted bottom), `"evolving_wave"` (Step function for height, constant discharge, flat bottom), `"standing_wave"` (Final profile of `"evolving_wave"` for method `'C'`, representing an equilibrium), `"standing_wave_pert"` (Final profile of `"evolving_wave"` for method `'C'`, with a perturbation), `"forming_collision"` (Constant water height, positive velocity on the right, negative velocity on the left, flat bottom), `"spike_flattening"` (Water height given by a Gaussian, zero velocity, flat bottom), `"over_bump"` (Constant total water height, constant velocity, bottom given by a Gaussian). Defaults to `"still_flat"`.
 * **method** _(String)_: Name of the method used. Has to be one of `'A'`, `'B'`, `'C'`. Defaults to `'C'`.
 
 ### Returns

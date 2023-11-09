@@ -21,7 +21,7 @@ def extractVars(method, U, g, B, gridX):
     return h, u
 
 
-def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C'):
+def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C', steadyH=None):
     """
     Computes and plots the solution to the SWE equations.
     Input:
@@ -33,6 +33,7 @@ def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C'):
         timePoints  Points in time to include in plot
         g           Gravitational constant
         method      Method used for discretization
+        steadyH     The steady height (optional)
     Output:
         h           Final water height profile
         u           Final water velocity profile
@@ -61,16 +62,8 @@ def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C'):
     U0 = constructIC(method, h0, u0, Nx, B, g)
 
     # Compute the solution depending on the method
-    if method == 'A':
-        B, Bx = B
-        B = np.vectorize(B)
-        Bx = np.vectorize(Bx)
-        gridX, UHist, tHist = solveSWE(Bx, U0, Nx, tEnd, g, method)
-    elif method in ['B', 'C', 'D']:
-        B = np.vectorize(B)
-        gridX, UHist, tHist = solveSWE(B, U0, Nx, tEnd, g, method)
-    else:
-        raise ValueError(f"Method {method} not implemented")
+    B = np.vectorize(B)
+    gridX, UHist, tHist = solveSWE(B, U0, Nx, tEnd, g, method)
 
     # Plot the solution at the given timestamps
     plt.figure()
@@ -91,6 +84,27 @@ def plotSWE(B, h0, u0, Nx, tEnd, timePoints, g=1, method='C'):
     plt.legend()
 
     plt.show()
+
+    # Plot the difference with the steady-state
+    if steadyH:
+        if steadyH == "TBC":
+            steadyH, _ = extractVars(method, UHist[-1], g, B, gridX)
+        plt.figure()
+        for time in timePoints:
+            if time > tHist[-1]:
+                continue
+            i = 0
+            while tHist[i] < time: i+= 1
+            h, _ = extractVars(method, UHist[i], g, B, gridX)
+            plt.plot(gridX, np.array(h) - np.array(steadyH), 
+                    label=f"Difference at t={round(time, 2)}")
+        plt.xlim(0, 1)
+        plt.title(f"Difference with Steady-State Solution for Method {method}")
+        plt.xlabel(r"Spatial Coordinate $x$")
+        plt.ylabel(r"Difference with Steady-State $h-\tilde h$")
+        plt.legend()
+
+        plt.show()
 
     # Unpack the water height and velocity from the final profile
     return extractVars(method, UHist[-1], g, B, gridX)

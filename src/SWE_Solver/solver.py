@@ -38,14 +38,14 @@ def RHS(X, U, B, dx, dt, g, method):
     RHS = np.empty_like(U)
 
     # Extend U and X to allow for open BCs
-    U = np.vstack([U[0], U, U[-1]])
-    X = np.concatenate([[X[0]], X, [X[-1]]])
+    U = np.vstack([U[1], U, U[-2]])
+    X = np.concatenate([[X[1]], X, [X[-2]]])
     XHalf = 0.5 * (X[:-1] + X[1:])
     BX = B(X)
     BHalf = B(XHalf)
 
     # Extracting quantities from the data
-    u = [p[1] / p[0] if p[0] > 1e-8 else 0 for p in U]
+    u = [p[1] / p[0] if p[0] > 1e-4 else 0 for p in U]
     h = [p[0] for p in U]
     q = [h_ * u_ for h_, u_ in zip(h, u)]
 
@@ -58,7 +58,7 @@ def RHS(X, U, B, dx, dt, g, method):
         hn, hp = reconstructVars(h, dx)
     if method == 'B':
         # For method B, reconstruction of h is based on reconstruction of w
-        w = [p[0] + B(x) for p, x in zip(U, X)]
+        w = [p[0] + Bx for p, Bx in zip(U, BX)]
         wn, wp = reconstructVars(w, dx)
 
         hn = [w_n - B_ for w_n, B_ in zip(wn, BHalf)]
@@ -71,9 +71,8 @@ def RHS(X, U, B, dx, dt, g, method):
         hn = [reconstructH(E_n, qL, q_n, B_, hL, g) for E_n, qL, q_n, B_, hL, hR in zip(En, q[:-1], qn, BHalf, h[:-1], h[1:])]
         hp = [reconstructH(E_p, qR, q_p, B_, hL, g) for E_p, qR, q_p, B_, hL, hR in zip(Ep, q[1:], qp, BHalf, h[:-1], h[1:])]
 
-        # Desingularise u and recompute q for consistency
-        un = [q_n / h_n if h_n > 1e-8 else 0 for q_n, h_n in zip(qn, hn)]
-        up = [q_p / h_p if h_p > 1e-8 else 0 for q_p, h_p in zip(qp, hp)]
+        un = [q_n / h_n if h_n > 1e-4 else 0 for q_n, h_n in zip(qn, hn)]
+        up = [q_p / h_p if h_p > 1e-4 else 0 for q_p, h_p in zip(qp, hp)]
 
         qn = [u_n * h_n for u_n, h_n in zip(un, hn)]
         qp = [u_p * h_p for u_p, h_p in zip(up, hp)]
@@ -87,14 +86,11 @@ def RHS(X, U, B, dx, dt, g, method):
     sourceTerms = np.empty(len(U)-2)
     for j in range(1, len(U)-1):
         # Bottom topograhy at interfaces
-        BR, BL = B(XHalf[j]), B(XHalf[j-1])
+        BR, BL = BHalf[j], BHalf[j-1]
 
         # Computation of Source Term
-        if method == 'A':
-            S = - g * h[j] * B(X[j])
-        elif method == 'B':
+        if method == 'A' or method == 'B':
             S = - g * h[j] * (BR - BL) / dx
-            # S = - g * (w[j] - B(X[j])) * (BR - BL) / dx
         elif method == 'C':
             hRn, hLp = hn[j], hp[j-1]
             uRn, uLp = un[j], up[j-1]
@@ -102,9 +98,6 @@ def RHS(X, U, B, dx, dt, g, method):
         else:
             raise ValueError("Method is not valid")
 
-        if np.isnan(Up[j]).any() or np.isnan(Un[j]).any():
-            print("U has nans")
-            exit()
         # Compute the Fluctuation
         fluctR[j-1] = computeFluctuation(Up[j], Un[j], dx, dt, g)
         fluctL[j-1] = computeFluctuation(Up[j-1], Un[j-1], dx, dt, g)
@@ -133,9 +126,9 @@ def solveSWE(B, U0, Nx, t_end, g, method):
             yield
 
     pbar = tqdm(generator(t_end))
+    dt = min(dx / (2 * getLambdaMax(U0, g)), t_end - t)
     for _ in pbar:
         pbar.set_description(f"Total Time: {round(t, 4)} / {t_end}")
-        dt = min(dx / (2 * getLambdaMax(U0, g)), t_end - t)
         L = lambda U: RHS(gridX, U, B, dx, dt, g, method)
         Utemp1 = U0 + L(U0)
         U0 = 1/2 * U0 + 1/2 * Utemp1 + 1/2 * L(Utemp1)

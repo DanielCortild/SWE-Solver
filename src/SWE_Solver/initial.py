@@ -11,15 +11,20 @@ def getBLin(B, gridX):
     """
     dx = gridX[1]
     def BLin(x):
-        if x <= 0.5 * dx:
+        if -0.5 * dx <= x <= 0:
+            return B(0.5*dx) + (B(-0.5*dx) - B(0.5*dx)) * (x - (-0.5 * dx)) / (dx)
+        if 0 <= x <= 0.5 * dx:
             return B(-0.5*dx) + (B(0.5*dx) - B(-0.5*dx)) * (x - (-0.5 * dx)) / (dx)
         for i in range(1, len(gridX)-1):
             hm = 0.5 * (gridX[i-1] + gridX[i])
             hp = 0.5 * (gridX[i] + gridX[i+1])
             if  hm <= x <= hp:
                 return B(hm) + (B(hp) - B(hm)) * (x - hm) / (hp - hm)
-        if x >= 1 - 0.5 * dx:
+        if 1 - 0.5 * dx <= x <= 0:
             return B(1-0.5*dx) + (B(1+0.5*dx) - B(1-0.5*dx)) * (x - (1-0.5*dx)) / (dx)
+        if 0 <= x <= 1 + 0.5 * dx:
+            return B(1+0.5*dx) + (B(1-0.5*dx) - B(1+0.5*dx)) * (x - (1-0.5*dx)) / (dx)
+        raise ValueError("Cannot evaluate BLin at that point")
     return np.vectorize(BLin)
 
 def getLambdaMax(U, g):
@@ -33,7 +38,7 @@ def getLambdaMax(U, g):
     Output:
         lamb    The maximal eigenvalue
     """
-    return max([(u[1]/u[0] if u[0] >= 1e-8 else 0) + np.sqrt(max(g * u[0], 0)) for u in U])
+    return max([u[1]/u[0] + np.sqrt(max(g * u[0], 0)) for u in U])
 
 
 def constructIC(method, h0, u0, Nx, B, g):
