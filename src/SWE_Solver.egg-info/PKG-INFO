@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: SWE-Solver
-Version: 0.1.4
+Version: 0.1.6
 Summary: A small package including a one-dimensional well-balanced Shallow Water Equations solver.
 Author-email: Daniel Cortild <d.cortild@rug.nl>
 Project-URL: Homepage, https://github.com/DanielCortild/SWE-Solver
@@ -14,7 +14,7 @@ License-File: LICENSE
 
 # Shallow Water Equations Solver
 
-This package provides a well-balanced solver for the one-dimensional Saint-Venant equations, based on the principles outlined in [this paper](https://github.com/DanielCortild/SWE-Solver/blob/967bd50116b6374dda2cf36ac9628e56af1722de/paper.pdf?raw=true).
+This package provides a well-balanced solver for the one-dimensional Saint-Venant equations, based on the principles outlined in [this paper](https://github.com/DanielCortild/SWE-Solver/blob/main/paper.pdf?raw=true) and [this presentation](https://github.com/DanielCortild/SWE-Solver/blob/main/presentation.pdf?raw=true). 
 
 ## Installation
 
