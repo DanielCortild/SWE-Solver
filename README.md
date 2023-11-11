@@ -1,6 +1,6 @@
 # Shallow Water Equations Solver
 
-This package provides a well-balanced solver for the one-dimensional Saint-Venant equations, based on the principles outlined in [this paper](https://github.com/DanielCortild/SWE-Solver/blob/main/paper.pdf?raw=true) and [this presentation](https://github.com/DanielCortild/SWE-Solver/blob/main/presentation.pdf?raw=true). 
+This package provides a well-balanced solver for the one-dimensional Saint-Venant equations, based on the principles outlined in [this paper](https://www.researchgate.net/publication/375552742_Well-Balanced_Schemes_for_Shallow_Water_Equations) and [this presentation](https://github.com/DanielCortild/SWE-Solver/blob/main/presentation.pdf?raw=true). 
 
 ## Installation
 
